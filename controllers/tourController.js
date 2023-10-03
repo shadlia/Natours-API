@@ -40,6 +40,7 @@ exports.GetAllTours = catchAsync(async (req, res, next) => {
 });
 exports.GetOneTour = catchAsync(async (req, res, next) => {
   const id = req.params.id;
+
   const tour = await Tour.findById(req.params.id);
   //const tour=Tour.findOne({ _id: req.params.id})
   if (!tour) {
@@ -82,7 +83,9 @@ exports.UpdateTour = catchAsync(async (req, res, next) => {
 //Delete
 exports.DeleteTour = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-  const deletedTour = await Tour.findByIdAndDelete(id);
+
+  const deletedTour = await Tour.findByIdAndDelete(req.params.id);
+
   if (!deletedTour) {
     return next(new AppError(`No tour found with that ID`, 404));
   }
@@ -141,7 +144,7 @@ exports.getMonthlyPlan = catchAsync(async (req, res, next) => {
     },
     {
       $group: {
-        _id: { $month: '$startDates' },
+        _id: { $month: '$startDates' }, // we give the id to group by is the month of the startDates
         numToursStarts: { $sum: 1 },
         tours: { $push: '$name' },
       },
@@ -151,7 +154,7 @@ exports.getMonthlyPlan = catchAsync(async (req, res, next) => {
     },
     {
       $project: {
-        _id: 0,
+        _id: 0, // we used it to remove the id from output
       },
     },
     {
