@@ -27,8 +27,7 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 exports.signup = catchAsync(async (req, res, next) => {
-  console.log(req.body);
-  const newUser = await User.create({
+  const user = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
@@ -37,7 +36,34 @@ exports.signup = catchAsync(async (req, res, next) => {
     role: req.body.role,
   });
 
-  createSendToken(newUser, 201, res);
+  //1-Create the confirmEmail token and expiration
+
+  const confirmEmailToken = user.createConfirmEmailToken();
+  await user.save({ validateBeforeSave: false }); // so we dont need to put all information as save new user
+  //2 send it to the user
+  const ConfirmURL = `${req.protocol}://${req.get(
+    'host'
+  )}/api/v1/users/Confirmemail/${confirmEmailToken}`;
+  const message = `hello ${user.name}Confirm your Email please by clicking on this link :${ConfirmURL}`;
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Your Email confirmation  Token (valid for 1 day)',
+      message,
+    });
+  } catch (err) {
+    user.ConfirmEmailExipres = undefined;
+    user.passwordResetExipres = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      new AppError(
+        'There was an error sending the Confirmation email,try again Later',
+        500
+      )
+    );
+  }
+
+  createSendToken(user, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -48,12 +74,28 @@ exports.login = catchAsync(async (req, res, next) => {
   }
   //2- check if the user exist and the password and email match
   const user = await User.findOne({ email: email }).select('+password'); // we have password select false
-
-  if (!user || !(await user.correctPassword(password, user.password))) {
+  if (!user) {
+    return next(new AppError('Incorrect email or password', 401));
+  }
+  // check if user has right to login first
+  if (user.ReachedMaxLoginAttempts()) {
+    return next(
+      new AppError(
+        '`Maximum login attempts reached. Please wait for 1 hour(s) before trying again.',
+        401
+      )
+    );
+  }
+  if (!(await user.correctPassword(password, user.password))) {
+    user.loginAttempts += 1;
+    user.lastLoginAttempt = new Date().getTime();
+    await user.save({ validateBeforeSave: false });
     return next(new AppError('Incorrect email or password', 401));
   }
 
   //3- send sucess response
+  user.loginAttempts = 0;
+  await user.save({ validateBeforeSave: false });
   createSendToken(user, 200, res);
 });
 
@@ -138,7 +180,6 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     user.passwordResetToken = undefined;
     user.passwordResetExipres = undefined;
     await user.save({ validateBeforeSave: false });
-    console.error(err);
     return next(
       new AppError('There was an error sending the email,try again Later', 500)
     );
@@ -191,5 +232,31 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   user.passwordComfirm = NewPasswordConfirm;
   await user.save();
   //4-login user in , send Jwt
+  createSendToken(user, 200, res);
+});
+exports.confirmEmail = catchAsync(async (req, res, next) => {
+  //1- get user based on token
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
+  const user = await User.findOne({
+    ConfirmEmailToken: hashedToken,
+    ConfirmEmailExipres: { $gt: Date.now() },
+  });
+  //2- if token is not expired and there is user then set new  password
+
+  if (!user) {
+    return next(new AppError('User doesnt exist', 404));
+  }
+  user.isEmailConfirmed = true;
+
+  user.ConfirmEmailToken = undefined;
+  user.ConfirmEmailExipres = undefined;
+  await user.save({ validateBeforeSave: false });
+  //-3 update changePassowrd at property for the user
+  //4- Log the user in send JWT
+
   createSendToken(user, 200, res);
 });

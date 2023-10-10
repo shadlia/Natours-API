@@ -15,12 +15,15 @@ const filterObj = (obj, ...allowedFields) => {
   return newObj;
 };
 //Route Handlers
-exports.GetAllUser = (req, res) => {
-  res.status(500).json({
-    status: 'error',
-    message: 'this route not yet defined',
+exports.GetAllUser = catchAsync(async (req, res) => {
+  const users = await User.find();
+  res.status(200).json({
+    status: 'sucess',
+    data: {
+      users: users,
+    },
   });
-};
+});
 exports.CreateNewUser = catchAsync(async (req, res, next) => {
   const NewUser = await User.create(req.body); // its a promise we can use .then
   res.status(201).json({
@@ -50,6 +53,14 @@ exports.UpdateMe = catchAsync(async (req, res, next) => {
     data: {
       user: updatedUser,
     },
+  });
+});
+exports.DeleteMe = catchAsync(async (req, res, next) => {
+  const user = await User.findByIdAndUpdate(req.user.id, { active: false });
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
   });
 });
 
