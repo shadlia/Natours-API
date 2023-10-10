@@ -13,7 +13,9 @@ if (process.env.NODE_ENV.trim() == 'development') {
   app.use(morgan('dev')); //logger ! middleware to give us infors about the HTTP request/response
 }
 
-app.use(express.json()); // middleware to read the req body
+app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// middleware to read the req body
 //html file : static files
 app.use(express.static(`${__dirname}/public`));
 
