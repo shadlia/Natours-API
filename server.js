@@ -3,16 +3,8 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
 // Should be the first thing in our application
-//Handle unhandled Rejection Promises in the whole application Ex:DB connection errors
-process.on('unhandledRejection', (err) => {
-  console.log('UhandledRejection : Shuting down...');
-  console.log(err.name, err.message);
-  server.close(() => {
-    process.exit(1); //shut down application
-  });
-});
 
-////Handle uncaught exception Promises in the whole application
+////Handle uncaught exception Promises in the whole application ex:variables not defined
 process.on('uncaughtException', (err) => {
   console.log('uncaughtException : Shuting down...');
   console.log(err.name, err.message);
@@ -23,6 +15,7 @@ process.on('uncaughtException', (err) => {
 
 const app = require('./app');
 dotenv.config({ path: './config.env' });
+
 //1)DataBase
 const DB = process.env.DATABASE.replace(
   '<PASSWORD>',
@@ -45,4 +38,12 @@ mongoose
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
   console.log(`App listening on port ${port}...`);
+});
+//Handle unhandled Rejection Promises in the whole application Ex:DB connection errors
+process.on('unhandledRejection', (err) => {
+  console.log('UhandledRejection : Shuting down...');
+  console.log(err.name, err.message);
+  server.close(() => {
+    process.exit(1); //shut down application
+  });
 });
