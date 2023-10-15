@@ -2,13 +2,11 @@ const { promisify } = require('util');
 const User = require('./../Models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const jwt = require('jsonwebtoken');
-const errorController = require('./errorController');
-const { formatUser } = require('../utils/userFormatter');
 const AppError = require('./../utils/appError');
 const { request } = require('http');
 const sendEmail = require('./../utils/email');
 const crypto = require('crypto');
-
+const { formatUser } = require('./../utils/userFormatter');
 const signToken = (id) => {
   const payload = { id: id };
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -17,12 +15,22 @@ const signToken = (id) => {
 };
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+  };
+  if (process.env.NODE_ENV === 'production') cookieOptions.secure = true; //only in https so only activate it in production
+
+  res.cookie('jwt', token, cookieOptions);
+  // to remove the password from the data we sent
 
   res.status(statusCode).json({
     success: true,
     token,
     data: {
-      user,
+      user: formatUser(user),
     },
   });
 };

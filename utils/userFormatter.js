@@ -1,7 +1,7 @@
 function formatUser(user) {
   const formattedUser = {
     id: user.id,
-    username: user.username,
+    name: user.name,
     email: user.email,
     // Add other fields you want to include
   };
