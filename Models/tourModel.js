@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
 const validator = require('validator');
-
+const User = require('./userModel');
 const TourSchema = new mongoose.Schema(
   {
     name: {
@@ -79,6 +79,34 @@ const TourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // embeded documents : arrays of objects
+    startLocation: {
+      // GeoJSON
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordoniates: [Number], //array of numbers
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: 'Point',
+          enum: ['Point'],
+        },
+        coordoniates: [Number], //array of numbers
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    // [] means sub documents
+    // reference to the id of the user (guide of the tour)
+    guides: [{ type: mongoose.Schema.ObjectId, ref: 'User' }],
   },
   { toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
@@ -91,6 +119,12 @@ TourSchema.pre('save', function (next) {
   this.slug = slugify(this.name, { lower: true });
   next();
 });
+//embeddin data : get the full infos of the guides through ids (new docs only )
+/* TourSchema.pre('save', async function (next) {
+  const guidesPromises = this.guides.map(async (id) => await User.findById(id)); // its an array full of promises
+  this.guides = await Promise.all(guidesPromises); //save the result of the promises
+  next();
+}); */
 
 TourSchema.post('save', function (doc, next) {
   console.log(doc);
@@ -105,6 +139,13 @@ TourSchema.pre(/^find/, function (next) {
 });
 TourSchema.pre('findOneAndUpdate', function (next) {
   this.options.runValidators = true;
+  next();
+});
+TourSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: 'guides',
+    select: '-__v -passwordChangedAt',
+  }); // we use populate to get the guides inforrmation cause we used reference instead of embedded
   next();
 });
 TourSchema.post(/^find/, function (docs, next) {

@@ -3,6 +3,7 @@ function formatUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+
     // Add other fields you want to include
   };
   return formattedUser;
